@@ -1,6 +1,7 @@
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LoggerModule } from 'nestjs-pino';
+import { AuthModule } from './auth/auth.module.js';
 import { JsonBodyMiddleware } from './common/middleware/json-body.middleware.js';
 import { RedisModule } from './common/redis/redis.module.js';
 import { AppConfig } from './config/app-config.js';
@@ -25,6 +26,7 @@ import { HealthModule } from './health/health.module.js';
     }),
     RedisModule,
     HealthModule,
+    AuthModule,
   ],
 })
 export class AppModule implements NestModule {

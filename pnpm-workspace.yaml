@@ -16,3 +16,6 @@ trustPolicy: no-downgrade
 allowBuilds:
   # Install-time usage telemetry pulled in by swagger-ui-dist; never needed.
   '@scarf/scarf': false
+  # Its script only runs node-gyp-build, which also runs at require() time and loads the
+  # bundled glibc/musl prebuilds; no compile step is needed.
+  argon2: false
