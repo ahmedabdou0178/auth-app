@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build:shared": "pnpm --filter @auth-app/shared build",
+    "dev": "pnpm build:shared && concurrently -k -n api,web -c blue,magenta \"pnpm --filter @auth-app/server dev\" \"pnpm --filter @auth-app/client dev\"",
     "build": "pnpm build:shared && pnpm --filter \"!@auth-app/shared\" -r build",
     "lint": "pnpm build:shared && eslint .",
     "typecheck": "pnpm build:shared && pnpm -r typecheck",
