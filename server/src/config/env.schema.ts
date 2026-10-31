@@ -76,7 +76,10 @@ export const envSchema = z
     THROTTLE_LIMIT: positiveInt(100),
     AUTH_THROTTLE_LIMIT: positiveInt(5),
     SWAGGER_ENABLED: booleanString.optional(),
+    // Per (email, client IP): one IP can only lock itself out.
     LOCKOUT_MAX_ATTEMPTS: positiveInt(5),
+    // Per email across all IPs: only a distributed attack reaches it.
+    LOCKOUT_ACCOUNT_MAX_ATTEMPTS: positiveInt(100),
     LOCKOUT_DURATION: duration('15m'),
     TRUST_PROXY: trustProxy,
     REDIS_URL: z
@@ -85,6 +88,13 @@ export const envSchema = z
       .optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.LOCKOUT_ACCOUNT_MAX_ATTEMPTS < env.LOCKOUT_MAX_ATTEMPTS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LOCKOUT_ACCOUNT_MAX_ATTEMPTS'],
+        message: 'Must be at least LOCKOUT_MAX_ATTEMPTS',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
     const localOrigin = isLocalhost(env.CORS_ORIGIN);
     if (!localOrigin && !env.CORS_ORIGIN.startsWith('https://')) {

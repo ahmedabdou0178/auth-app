@@ -35,12 +35,12 @@ export class AuthService {
 
   async signUp(input: SignUpInput, context: ClientContext): Promise<SignedIn> {
     const passwordHash = await hash(input.password, { type: argon2id });
+    const user = await this.users.create({ email: input.email, name: input.name, passwordHash });
+    const started = await this.sessions.start(user._id, context);
     // TODO(outbox): email verification / welcome email. Insert the user and an `outbox` event
     // ({ type: 'user.signed_up', userId, createdAt }) in one Mongo transaction (Compose runs a
     // replica set, so transactions work); a separate worker reads the outbox, sends the email
-    // and marks the event done. The request never waits on, or fails because of, the mailer.
-    const user = await this.users.create({ email: input.email, name: input.name, passwordHash });
-    const started = await this.sessions.start(user._id, context);
+    // and marks the event done. The request never waits on, or fails because of, the notification service.
     this.logger.info({ event: 'signup', userId: user.id }, 'User signed up');
     return { user, ...started };
   }
@@ -50,9 +50,9 @@ export class AuthService {
 
     // Checked before the lookup: no argon2 work (and no answer) while locked, even for the
     // right password.
-    const retryAfter = await this.lockout.retryAfterSeconds(input.email);
+    const retryAfter = await this.lockout.retryAfterSeconds(input.email, context.ip);
     if (retryAfter > 0) {
-      this.logger.info({ event: 'signin_locked', emailHash }, 'Sign-in refused: email locked');
+      this.logger.info({ event: 'signin_locked', emailHash }, 'Sign-in refused: locked');
       throw new AppException(
         HttpStatus.TOO_MANY_REQUESTS,
         ErrorCode.ACCOUNT_LOCKED,
@@ -68,10 +68,22 @@ export class AuthService {
       : await verify(await this.dummyHash, input.password).then(() => false);
 
     if (!user || !passwordMatches) {
-      const locked = await this.lockout.registerFailure(input.email);
+      const { pairLocked, accountLocked } = await this.lockout.registerFailure(
+        input.email,
+        context.ip,
+      );
       this.logger.info({ event: 'signin_failed', emailHash }, 'Sign-in failed');
-      if (locked) {
-        this.logger.warn({ event: 'lockout_started', emailHash }, 'Email locked after failures');
+      if (pairLocked) {
+        this.logger.warn(
+          { event: 'lockout_started', scope: 'ip', emailHash },
+          'Email locked for this client IP after failures',
+        );
+      }
+      if (accountLocked) {
+        this.logger.warn(
+          { event: 'lockout_started', scope: 'account', emailHash },
+          'Email locked for all IPs after failures',
+        );
       }
       throw new AppException(
         HttpStatus.UNAUTHORIZED,
@@ -80,7 +92,7 @@ export class AuthService {
       );
     }
 
-    await this.lockout.reset(input.email);
+    await this.lockout.reset(input.email, context.ip);
     const started = await this.sessions.start(user._id, context);
     this.logger.info({ event: 'signin', userId: user.id }, 'User signed in');
     return { user, ...started };

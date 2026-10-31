@@ -1,16 +1,28 @@
 # Local stack: `docker compose up --build`, then open http://localhost:5173.
 # Credentials come only from the environment / .env (no defaults for passwords).
+# Resource limits and log rotation can be tuned with the *_LIMIT / LOG_* variables below.
 name: auth-app
 
-x-restart: &restart # Containers come back after a crash or a Docker daemon / host restart.
+x-defaults: &defaults # Containers come back after a crash or a Docker daemon / host restart.
   restart: always
+  # Rotated logs: at most LOG_MAX_FILE files of LOG_MAX_SIZE each per container, so a
+  # restart loop or a noisy service can't fill the disk. Still `docker logs`-compatible, and
+  # log shippers (Promtail, Filebeat, Vector) can read the JSON files.
+  logging:
+    driver: json-file
+    options:
+      max-size: ${LOG_MAX_SIZE:-10m}
+      max-file: ${LOG_MAX_FILE:-5}
 
 services:
   mongo:
-    <<: *restart
+    <<: *defaults
     image: mongo:8
-    # A random replica-set key file at every start (auth between members, here just one).
-    # Started as replica set rs0 so multi-document transactions work.
+    # A single-node replica set (rs0): enables multi-document transactions (the outbox design
+    # in auth.service.ts needs them) and change streams. One member means no failover; add
+    # members (sharing one key file) if the deployment needs high availability.
+    # A random replica-set key file is generated at every start (member auth; here just one).
+    # WiredTiger's cache is pinned so it fits the container's memory limit.
     entrypoint:
       - bash
       - -c
@@ -18,7 +30,7 @@ services:
         head -c 756 /dev/urandom | base64 -w 0 > /tmp/mongo-keyfile
         chmod 400 /tmp/mongo-keyfile
         chown 999:999 /tmp/mongo-keyfile
-        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-keyfile --wiredTigerCacheSizeGB ${MONGO_CACHE_GB:-0.25}
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?required}
@@ -30,6 +42,11 @@ services:
     # Host access for `pnpm dev` only; never on a public interface.
     ports:
       - 127.0.0.1:27017:27017
+    deploy:
+      resources:
+        limits:
+          memory: ${MONGO_MEMORY_LIMIT:-1g}
+          cpus: '${MONGO_CPU_LIMIT:-1.0}'
     healthcheck:
       # Initiates the replica set on first start, then waits for a primary.
       test:
@@ -45,15 +62,24 @@ services:
       start_period: 20s
 
   redis:
-    <<: *restart
+    <<: *defaults
     image: redis:8-alpine
+    # Counters only, no persistence. maxmemory stays below the container limit; noeviction
+    # means a full Redis returns errors instead of silently dropping lockout/rate-limit keys.
     command:
       - sh
       - -c
-      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save '' --appendonly no
+      - >-
+        exec redis-server --requirepass "$$REDIS_PASSWORD" --save '' --appendonly no
+        --maxmemory ${REDIS_MAXMEMORY:-48mb} --maxmemory-policy noeviction
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
       REDISCLI_AUTH: ${REDIS_PASSWORD:?required}
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY_LIMIT:-64m}
+          cpus: '${REDIS_CPU_LIMIT:-0.25}'
     healthcheck:
       test: [CMD, redis-cli, ping]
       interval: 5s
@@ -61,7 +87,7 @@ services:
       retries: 20
 
   api:
-    <<: *restart
+    <<: *defaults
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -87,11 +113,21 @@ services:
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
       AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-5}
       LOCKOUT_MAX_ATTEMPTS: ${LOCKOUT_MAX_ATTEMPTS:-5}
+      LOCKOUT_ACCOUNT_MAX_ATTEMPTS: ${LOCKOUT_ACCOUNT_MAX_ATTEMPTS:-100}
       LOCKOUT_DURATION: ${LOCKOUT_DURATION:-15m}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-}
+      # argon2 hashes run on libuv's thread pool at ~64 MiB each: the pool size caps how many
+      # run at once (4 × 64 MiB), and the heap cap keeps Node inside the memory limit.
+      UV_THREADPOOL_SIZE: ${API_UV_THREADPOOL_SIZE:-4}
+      NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-256}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-}
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-512m}
+          cpus: '${API_CPU_LIMIT:-1.0}'
     healthcheck:
       test: [CMD, wget, -qO-, http://127.0.0.1:3000/api/health]
       interval: 5s
@@ -100,7 +136,7 @@ services:
       start_period: 10s
 
   web:
-    <<: *restart
+    <<: *defaults
     build:
       context: .
       dockerfile: client/Dockerfile
@@ -110,6 +146,11 @@ services:
         condition: service_healthy
     ports:
       - 127.0.0.1:5173:8080
+    deploy:
+      resources:
+        limits:
+          memory: ${WEB_MEMORY_LIMIT:-64m}
+          cpus: '${WEB_CPU_LIMIT:-0.5}'
 
 volumes:
   mongo-data:

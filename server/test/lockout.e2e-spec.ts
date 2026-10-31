@@ -3,7 +3,8 @@ import type { App } from 'supertest/types';
 import type { ApiError } from '@auth-app/shared';
 import { createTestApp, STRONG_PASSWORD, type TestContext, uniqueEmail } from './helpers';
 
-// setup-env.ts sets LOCKOUT_MAX_ATTEMPTS=3, LOCKOUT_DURATION=15m.
+// setup-env.ts sets LOCKOUT_MAX_ATTEMPTS=3 (per email + IP), LOCKOUT_ACCOUNT_MAX_ATTEMPTS=6
+// (per email, all IPs), LOCKOUT_DURATION=15m and TRUST_PROXY=1, so X-Forwarded-For sets the IP.
 let ctx: TestContext;
 let server: App;
 
@@ -25,13 +26,18 @@ async function register(): Promise<string> {
   return email;
 }
 
-function signIn(email: string, password: string) {
-  return request(server).post('/api/auth/signin').send({ email, password });
+const DEFAULT_IP = '192.0.2.10';
+
+function signIn(email: string, password: string, ip = DEFAULT_IP) {
+  return request(server)
+    .post('/api/auth/signin')
+    .set('X-Forwarded-For', ip)
+    .send({ email, password });
 }
 
-async function failTimes(email: string, times: number): Promise<void> {
+async function failTimes(email: string, times: number, ip = DEFAULT_IP): Promise<void> {
   for (let i = 0; i < times; i += 1) {
-    await signIn(email, 'Wrong-pass1').expect(401);
+    await signIn(email, 'Wrong-pass1', ip).expect(401);
   }
 }
 
@@ -59,6 +65,25 @@ describe('account lockout', () => {
     await signIn(email, STRONG_PASSWORD).expect(200);
     await failTimes(email, 2);
     await signIn(email, STRONG_PASSWORD).expect(200);
+  });
+
+  it('does not lock the owner out when another IP fails on purpose', async () => {
+    const email = await register();
+    await failTimes(email, 3, '203.0.113.66');
+    await signIn(email, STRONG_PASSWORD, '203.0.113.66').expect(429);
+
+    await signIn(email, STRONG_PASSWORD, '198.51.100.20').expect(200);
+  });
+
+  it('locks every IP once failures from several IPs reach the account-wide ceiling', async () => {
+    const email = await register();
+    await failTimes(email, 2, '203.0.113.1');
+    await failTimes(email, 2, '203.0.113.2');
+    await failTimes(email, 2, '203.0.113.3');
+
+    const res = await signIn(email, STRONG_PASSWORD, '198.51.100.20').expect(429);
+    expect((res.body as ApiError).code).toBe('ACCOUNT_LOCKED');
+    expect(Number(res.headers['retry-after'])).toBeGreaterThan(890);
   });
 
   it('does not affect other emails', async () => {

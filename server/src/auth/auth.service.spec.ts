@@ -32,7 +32,7 @@ function setup() {
   };
   const lockout = {
     retryAfterSeconds: jest.fn().mockResolvedValue(0),
-    registerFailure: jest.fn().mockResolvedValue(false),
+    registerFailure: jest.fn().mockResolvedValue({ pairLocked: false, accountLocked: false }),
     reset: jest.fn(),
   };
   const logger = { info: jest.fn(), warn: jest.fn() };
@@ -105,7 +105,7 @@ describe('AuthService.signIn', () => {
     users.findByEmailWithPassword.mockResolvedValue(await userWithPassword(PASSWORD));
     const result = await service.signIn({ email: 'ada@example.com', password: PASSWORD }, CONTEXT);
     expect(result.refreshToken).toBe('rt');
-    expect(lockout.reset).toHaveBeenCalledWith('ada@example.com');
+    expect(lockout.reset).toHaveBeenCalledWith('ada@example.com', '127.0.0.1');
   });
 
   it('returns the same 401 for a wrong password and an unknown email', async () => {
@@ -129,7 +129,7 @@ describe('AuthService.signIn', () => {
     expect(unknownError.message).toBe(wrongError.message);
     // The unknown email still costs one argon2 verify (timing parity).
     expect(argon2.verify).toHaveBeenCalledTimes(1);
-    expect(unknown.lockout.registerFailure).toHaveBeenCalledWith('ghost@example.com');
+    expect(unknown.lockout.registerFailure).toHaveBeenCalledWith('ghost@example.com', '127.0.0.1');
     expect(unknown.sessions.start).not.toHaveBeenCalled();
   });
 
@@ -145,27 +145,33 @@ describe('AuthService.signIn', () => {
   it('refuses a locked email with 429 + Retry-After before any lookup or verify', async () => {
     const { service, users, lockout } = setup();
     lockout.retryAfterSeconds.mockResolvedValue(42);
+    // The lock is looked up for this client IP (and the account-wide ceiling).
     const error = await expectAppError(
       service.signIn({ email: 'ada@example.com', password: PASSWORD }, CONTEXT),
       429,
       'ACCOUNT_LOCKED',
     );
     expect(error.headers).toEqual({ 'Retry-After': '42' });
+    expect(lockout.retryAfterSeconds).toHaveBeenCalledWith('ada@example.com', '127.0.0.1');
     expect(users.findByEmailWithPassword).not.toHaveBeenCalled();
     expect(argon2.verify).not.toHaveBeenCalled();
   });
 
-  it('logs a warning when a failure starts a lockout', async () => {
+  it.each([
+    ['this IP', { pairLocked: true, accountLocked: false }, 'ip'],
+    ['all IPs', { pairLocked: false, accountLocked: true }, 'account'],
+  ])('logs a warning when a failure locks the email for %s', async (_label, outcome, scope) => {
     const { service, users, lockout, logger } = setup();
     users.findByEmailWithPassword.mockResolvedValue(null);
-    lockout.registerFailure.mockResolvedValue(true);
+    lockout.registerFailure.mockResolvedValue(outcome);
     await service
       .signIn({ email: 'ghost@example.com', password: 'x' }, CONTEXT)
       .catch(() => undefined);
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'lockout_started' }),
+      expect.objectContaining({ event: 'lockout_started', scope }),
       expect.any(String),
     );
+    expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 });
 

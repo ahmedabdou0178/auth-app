@@ -25,6 +25,7 @@ describe('validateEnv', () => {
       THROTTLE_LIMIT: 100,
       AUTH_THROTTLE_LIMIT: 5,
       LOCKOUT_MAX_ATTEMPTS: 5,
+      LOCKOUT_ACCOUNT_MAX_ATTEMPTS: 100,
       LOCKOUT_DURATION: 900,
       TRUST_PROXY: 1,
     });
@@ -47,6 +48,12 @@ describe('validateEnv', () => {
     ['loopback, 10.0.0.0/8', ['loopback', '10.0.0.0/8']],
   ])('parses TRUST_PROXY=%s', (value, expected) => {
     expect(validateEnv({ ...BASE, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
+  it('refuses an account-wide lockout limit below the per-IP one', () => {
+    expect(() =>
+      validateEnv({ ...BASE, LOCKOUT_MAX_ATTEMPTS: '10', LOCKOUT_ACCOUNT_MAX_ATTEMPTS: '5' }),
+    ).toThrow(/LOCKOUT_ACCOUNT_MAX_ATTEMPTS: Must be at least LOCKOUT_MAX_ATTEMPTS/);
   });
 
   it('refuses TRUST_PROXY=true', () => {
