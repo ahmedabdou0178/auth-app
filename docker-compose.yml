@@ -2,8 +2,7 @@
 # Credentials come only from the environment / .env (no defaults for passwords).
 name: auth-app
 
-x-restart: &restart
-  # Containers come back after a crash or a Docker daemon / host restart.
+x-restart: &restart # Containers come back after a crash or a Docker daemon / host restart.
   restart: always
 
 services:

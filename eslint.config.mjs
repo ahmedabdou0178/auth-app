@@ -6,7 +6,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', 'reports/**', '**/*.config.{js,mjs,cjs}'],
+    // docker/: mongosh init scripts (mongosh globals, not Node/TypeScript).
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      'reports/**',
+      'docker/**',
+      '**/*.config.{js,mjs,cjs}',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,

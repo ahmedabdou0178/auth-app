@@ -6,8 +6,6 @@
  * local development pay nothing. Configured only through the standard OTEL_* variables.
  */
 import type { IncomingMessage } from 'node:http';
-import { register } from 'node:module';
-import { pathToFileURL } from 'node:url';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -19,6 +17,7 @@ import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { NodeSDK } from '@opentelemetry/sdk-node';
+import { register as registerEsmHooks } from 'import-in-the-middle/register-hooks.mjs';
 
 const ENDPOINT_VARIABLES = [
   'OTEL_EXPORTER_OTLP_ENDPOINT',
@@ -39,9 +38,10 @@ function isHealthProbe(req: IncomingMessage): boolean {
 let sdk: NodeSDK | undefined;
 
 if (telemetryEnabled) {
-  // NestJS 12 is ESM and imports express through the ESM loader, which require-time patching
-  // never sees; this loader hook lets the express instrumentation patch it too.
-  register('@opentelemetry/instrumentation/hook.mjs', pathToFileURL(__filename));
+  // NestJS 12 is ESM and imports express and mongoose through the ESM loader, which
+  // require-time patching never sees. This in-thread loader hook (module.registerHooks,
+  // Node >= 24.11.1) lets those instrumentations patch them too.
+  registerEsmHooks();
   process.env.OTEL_SERVICE_NAME ??= 'auth-api';
 
   sdk = new NodeSDK({

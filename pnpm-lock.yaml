@@ -341,6 +341,9 @@ importers:
       helmet:
         specifier: 8.3.0
         version: 8.3.0
+      import-in-the-middle:
+        specifier: 3.5.2
+        version: 3.5.2
       ioredis:
         specifier: 5.11.1
         version: 5.11.1(supports-color@10.2.2)
