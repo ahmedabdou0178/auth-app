@@ -24,6 +24,10 @@ describe('passwordSchema', () => {
     expect(passwordIssues('Secr3t!pw')).toEqual([]);
   });
 
+  it('accepts exactly 8 characters (the minimum)', () => {
+    expect(passwordIssues('Abcde1!x')).toEqual([]);
+  });
+
   it.each([
     ['Sh0rt!', 'At least 8 characters'],
     ['12345678!', 'At least one letter'],
@@ -86,6 +90,19 @@ describe('signUpSchema', () => {
   it('trims the name and strips unknown keys', () => {
     const parsed = signUpSchema.parse({ ...VALID, name: '  Ada  ', role: 'admin' });
     expect(parsed).toEqual(VALID);
+  });
+
+  it('accepts a name of exactly 3 and 50 characters', () => {
+    expect(signUpSchema.safeParse({ ...VALID, name: 'Ada' }).success).toBe(true);
+    expect(signUpSchema.safeParse({ ...VALID, name: 'a'.repeat(50) }).success).toBe(true);
+  });
+
+  it('rejects a name longer than 50 characters', () => {
+    const result = signUpSchema.safeParse({ ...VALID, name: 'a'.repeat(51) });
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['name'],
+      message: 'Name must be at most 50 characters',
+    });
   });
 
   it('rejects a name shorter than 3 characters after trimming', () => {

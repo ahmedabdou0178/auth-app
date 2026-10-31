@@ -10,6 +10,10 @@ engineStrict: true
 # Supply chain (SPEC §9.5)
 # Never resolve a version published less than 7 days ago (minutes).
 minimumReleaseAge: 10080
+# Exact versions only, each reviewed: security fixes needed before they are 7 days old.
+minimumReleaseAgeExclude:
+  # GHSA-mrwp-f3q8-3g9p (high), published 2026-10-25; fixes credentials following redirects.
+  - follow-redirects@1.16.2
 # Transitive dependencies may only come from the registry, never git/tarball URLs.
 blockExoticSubdeps: true
 # Refuse a version published with weaker provenance than an earlier one.
@@ -19,6 +23,16 @@ trustPolicy: no-downgrade
 trustPolicyExclude:
   # semver 6 line, required by @babel/core (via jest/ts-jest)
   - semver@6.3.1
+# Security fixes for transitive dependencies (`pnpm audit --prod`). Remove an entry once the
+# direct dependency ships the fixed version itself.
+overrides:
+  # GHSA-q7qp-rjg7-q26m (high): DoS via a pending async fileFilter. @nestjs/platform-express
+  # 12.2.0 pins 2.4.0; 12.3.x (which bumps it) is newer than minimumReleaseAge allows.
+  multer: 2.5.0
+  # GHSA-mrwp-f3q8-3g9p (high), via axios (^1.16.0). Only axios' Node HTTP adapter uses it,
+  # never the browser bundle, but the patched version is pinned anyway.
+  follow-redirects: 1.16.2
+
 # Install scripts are blocked unless listed here; every entry is reviewed.
 allowBuilds:
   # Install-time usage telemetry pulled in by swagger-ui-dist; never needed.

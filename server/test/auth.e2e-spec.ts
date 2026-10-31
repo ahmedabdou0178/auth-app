@@ -1,3 +1,5 @@
+import { getModelToken } from '@nestjs/mongoose';
+import type { Model } from 'mongoose';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import type { ApiError, AuthResponse } from '@auth-app/shared';
@@ -42,6 +44,18 @@ async function signUp(email = uniqueEmail()): Promise<Session> {
     csrfToken: body.csrfToken,
     body,
   };
+}
+
+function model(name: 'User' | 'Session'): Model<Record<string, unknown>> {
+  return ctx.app.get<Model<Record<string, unknown>>>(getModelToken(name));
+}
+
+/** Makes a session look expired before the TTL monitor would remove it. */
+async function expireSession(sid: string): Promise<void> {
+  await model('Session').updateOne(
+    { sessionId: sid },
+    { $set: { expiresAt: new Date(Date.now() - 1000) } },
+  );
 }
 
 function refresh(cookie: string) {
@@ -132,6 +146,21 @@ describe('POST /api/auth/signin', () => {
     expect((wrongPassword.body as ApiError).message).toBe('Invalid email or password');
   });
 
+  it('validates the body with the sign-in schema (400 with field details)', async () => {
+    const res = await request(server)
+      .post('/api/auth/signin')
+      .send({ email: 'not-an-email', password: '' })
+      .expect(400);
+    const body = res.body as ApiError;
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.details).toEqual(
+      expect.arrayContaining([
+        { field: 'email', message: 'Enter a valid email address' },
+        { field: 'password', message: 'Password is required' },
+      ]),
+    );
+  });
+
   it('signs in with the right password', async () => {
     const email = uniqueEmail('ok');
     await signUp(email);
@@ -165,15 +194,18 @@ describe('GET /api/users/me', () => {
 
   it('rejects an expired session', async () => {
     const session = await signUp();
-    const { getModelToken } = await import('@nestjs/mongoose');
-    const sessions = ctx.app.get<import('mongoose').Model<{ sessionId: string }>>(
-      getModelToken('Session'),
-    );
-    await sessions.updateOne(
-      { sessionId: session.sid },
-      { $set: { expiresAt: new Date(Date.now() - 1000) } },
-    );
+    await expireSession(session.sid);
     await request(server).get('/api/users/me').set('Cookie', `sid=${session.sid}`).expect(401);
+  });
+
+  it('rejects a session whose user no longer exists', async () => {
+    const session = await signUp();
+    await model('User').deleteOne({ email: session.body.user.email });
+    const res = await request(server)
+      .get('/api/users/me')
+      .set('Cookie', `sid=${session.sid}`)
+      .expect(401);
+    expect((res.body as ApiError).code).toBe('INVALID_SESSION');
   });
 });
 
@@ -253,6 +285,23 @@ describe('POST /api/auth/logout', () => {
 
     await request(server).get('/api/users/me').set('Cookie', `sid=${session.sid}`).expect(401);
     await request(server).get('/api/users/me').set('Cookie', `sid=${secondSid}`).expect(401);
+    await refresh(`refresh_token=${session.refreshToken}`).expect(401);
+  });
+
+  it('works after the session expired: revokes the refresh token via Origin + X-Requested-With', async () => {
+    const session = await signUp();
+    await expireSession(session.sid);
+    const cookie = `sid=${session.sid}; refresh_token=${session.refreshToken}`;
+
+    // No session any more, so the CSRF token can't be checked: Origin + custom header are required.
+    await request(server).post('/api/auth/logout').set('Cookie', cookie).expect(403);
+    await request(server)
+      .post('/api/auth/logout')
+      .set('Cookie', cookie)
+      .set('Origin', ORIGIN)
+      .set('X-Requested-With', 'fetch')
+      .expect(204);
+
     await refresh(`refresh_token=${session.refreshToken}`).expect(401);
   });
 
