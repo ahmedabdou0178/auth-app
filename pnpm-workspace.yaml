@@ -30,3 +30,5 @@ allowBuilds:
   mongodb-memory-server: false
   # napi-postinstall fallback; pnpm already installs the platform binary as an optional dep.
   unrs-resolver: false
+  # OTLP exporters' dependency; postinstall only prints a CLI version notice.
+  protobufjs: false

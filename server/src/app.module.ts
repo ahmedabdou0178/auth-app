@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module.js';
 import { JsonBodyMiddleware } from './common/middleware/json-body.middleware.js';
 import { REDIS_CLIENT, type RedisClient, RedisModule } from './common/redis/redis.module.js';
+import { TelemetryShutdown } from './common/telemetry/telemetry-shutdown.js';
 import { AppThrottlerGuard } from './common/throttling/app-throttler.guard.js';
 import { throttlerOptions } from './common/throttling/throttler.options.js';
 import { AppConfig } from './config/app-config.js';
@@ -37,7 +38,7 @@ import { HealthModule } from './health/health.module.js';
     AuthModule,
   ],
   // Registered before SessionsModule's guards: rate limits apply before any session lookup.
-  providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }, TelemetryShutdown],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

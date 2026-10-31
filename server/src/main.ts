@@ -1,3 +1,5 @@
+// Must stay first: instrumentations patch modules before they are loaded.
+import './instrumentation.js';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
