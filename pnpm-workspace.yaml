@@ -1,0 +1,16 @@
+packages:
+  - shared
+  - server
+  - client
+
+# Exact versions in package.json; refuse packages whose `engines` don't match.
+saveExact: true
+engineStrict: true
+
+# Supply chain (SPEC §9.5)
+# Never resolve a version published less than 7 days ago (minutes).
+minimumReleaseAge: 10080
+# Refuse a version published with weaker provenance than an earlier one.
+trustPolicy: no-downgrade
+# Install scripts are blocked unless listed here; every entry is reviewed.
+allowBuilds: {}

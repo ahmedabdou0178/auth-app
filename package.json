@@ -1,0 +1,28 @@
+{
+  "name": "auth-app",
+  "private": true,
+  "description": "Full-stack authentication module: NestJS + MongoDB API, React + TypeScript web app",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24.9.0 <25.0.0"
+  },
+  "scripts": {
+    "build:shared": "pnpm --filter @auth-app/shared build",
+    "build": "pnpm build:shared && pnpm --filter \"!@auth-app/shared\" -r build",
+    "lint": "pnpm build:shared && eslint .",
+    "typecheck": "pnpm build:shared && pnpm -r typecheck",
+    "test": "pnpm build:shared && pnpm -r --workspace-concurrency=1 test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "concurrently": "10.0.6",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0"
+  }
+}

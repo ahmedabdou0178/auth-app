@@ -1,0 +1,24 @@
+# Dependencies & build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs & OS
+*.log
+.DS_Store
+
+# Security scan reports
+reports/
+
+# Internal notes (never published)
+*.md
+
+
+# Assessment brief is marked "Internal"; keep it out of the public repo
+*.pdf

@@ -1,0 +1,15 @@
+{
+  "name": "@auth-app/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared zod schemas, password rules, API types and error codes",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  }
+}
