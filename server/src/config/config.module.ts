@@ -9,8 +9,9 @@ import { validateEnv } from './env.schema.js';
     ConfigModule.forRoot({
       // Scripts run from server/; the single .env lives at the repo root.
       envFilePath: ['../.env', '.env'],
-      // Tests set their own env and must never pick up a developer's .env.
-      ignoreEnvFile: process.env.NODE_ENV === 'test',
+      // Only local development reads .env. Tests and production get their environment
+      // explicitly, so a developer's .env can never leak into them.
+      ignoreEnvFile: process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'production',
       validate: validateEnv,
     }),
   ],

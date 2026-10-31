@@ -12,6 +12,11 @@ engineStrict: true
 minimumReleaseAge: 10080
 # Refuse a version published with weaker provenance than an earlier one.
 trustPolicy: no-downgrade
+# Exact versions only, each reviewed: old release lines published before npm provenance
+# existed, still required by maintained packages (not a takeover).
+trustPolicyExclude:
+  # semver 6 line, required by @babel/core (via jest/ts-jest)
+  - semver@6.3.1
 # Install scripts are blocked unless listed here; every entry is reviewed.
 allowBuilds:
   # Install-time usage telemetry pulled in by swagger-ui-dist; never needed.
@@ -19,3 +24,9 @@ allowBuilds:
   # Its script only runs node-gyp-build, which also runs at require() time and loads the
   # bundled glibc/musl prebuilds; no compile step is needed.
   argon2: false
+  # Jest watch mode only; script just selects a prebuilt binary.
+  '@parcel/watcher': false
+  # Postinstall pre-downloads mongod; it is downloaded lazily on first use instead.
+  mongodb-memory-server: false
+  # napi-postinstall fallback; pnpm already installs the platform binary as an optional dep.
+  unrs-resolver: false
