@@ -69,15 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [establish],
   );
 
+  // Only signs out locally once the API confirmed it: otherwise the httpOnly cookies would
+  // still restore the session on the next load. Failures reject so the page can say so.
   const logout = useCallback(async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      csrfStore.clear();
-      queryClient.clear();
-      queryClient.setQueryData(SESSION_QUERY_KEY, null);
-      void navigate('/signin', { replace: true });
-    }
+    await authApi.logout();
+    csrfStore.clear();
+    queryClient.clear();
+    queryClient.setQueryData(SESSION_QUERY_KEY, null);
+    void navigate('/signin', { replace: true });
   }, [queryClient, navigate]);
 
   const user = session.data ?? null;
