@@ -1,0 +1,27 @@
+# Production overlay, applied on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+# Runs the images CI publishes to GHCR. TLS is terminated by the load balancer / ingress in
+# front of the web container; secrets come from the deploy environment (secret store).
+services:
+  mongo:
+    # Not reachable from the host in production.
+    ports: !reset []
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:?required}/auth-app-api:${IMAGE_TAG:-latest}
+    build: !reset null
+    environment:
+      NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:?required}
+      COOKIE_SECURE: 'true'
+      SWAGGER_ENABLED: 'false'
+      # Load balancer + nginx sit on private networks: trust those hops only, so the rate
+      # limits key on the real client IP and clients can't fake X-Forwarded-For.
+      TRUST_PROXY: loopback, linklocal, uniquelocal
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:?required}/auth-app-web:${IMAGE_TAG:-latest}
+    build: !reset null
+    # Reached by the load balancer, which terminates TLS.
+    ports: !override
+      - ${WEB_PORT:-8080}:8080

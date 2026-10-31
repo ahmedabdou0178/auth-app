@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+.git
+.github
+.env
+.env.*
+reports
+*.md
+Full_Stack_Test_Task.pdf

@@ -1,0 +1,116 @@
+# Local stack: `docker compose up --build`, then open http://localhost:5173.
+# Credentials come only from the environment / .env (no defaults for passwords).
+name: auth-app
+
+x-restart: &restart
+  # Containers come back after a crash or a Docker daemon / host restart.
+  restart: always
+
+services:
+  mongo:
+    <<: *restart
+    image: mongo:8
+    # A random replica-set key file at every start (auth between members, here just one).
+    # Started as replica set rs0 so multi-document transactions work.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        head -c 756 /dev/urandom | base64 -w 0 > /tmp/mongo-keyfile
+        chmod 400 /tmp/mongo-keyfile
+        chown 999:999 /tmp/mongo-keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?required}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-auth_app}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?required}
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
+    # Host access for `pnpm dev` only; never on a public interface.
+    ports:
+      - 127.0.0.1:27017:27017
+    healthcheck:
+      # Initiates the replica set on first start, then waits for a primary.
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin --eval
+          "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }; db.hello().isWritablePrimary ? 0 : 1"
+          | tail -1 | grep -q '^0$$'
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    <<: *restart
+    image: redis:8-alpine
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save '' --appendonly no
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?required}
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: auth-app-api:local
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME:-auth_app}:${MONGO_APP_PASSWORD:?required}@mongo:27017/auth?replicaSet=rs0&authSource=auth
+      REDIS_URL: redis://:${REDIS_PASSWORD:?required}@redis:6379
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      # Plain HTTP on localhost; the production overlay pins true.
+      COOKIE_SECURE: 'false'
+      # One trusted hop: nginx in the web container.
+      TRUST_PROXY: '1'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SESSION_TTL: ${SESSION_TTL:-15m}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-5}
+      LOCKOUT_MAX_ATTEMPTS: ${LOCKOUT_MAX_ATTEMPTS:-5}
+      LOCKOUT_DURATION: ${LOCKOUT_DURATION:-15m}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-}
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:3000/api/health]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  web:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    image: auth-app-web:local
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:5173:8080
+
+volumes:
+  mongo-data:
