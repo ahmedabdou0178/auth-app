@@ -13,7 +13,10 @@
     "typecheck": "pnpm build:shared && pnpm -r typecheck",
     "test": "pnpm build:shared && pnpm -r --workspace-concurrency=1 test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:sast": "scripts/security/sast.sh",
+    "test:dast": "scripts/security/dast.sh",
+    "test:security": "pnpm test:sast && pnpm test:dast"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -1,0 +1,2 @@
+# ZAP API (active) scan from the OpenAPI spec. Format: <rule id>	<IGNORE|WARN|FAIL>	(<reason>)
+# Every alert not listed here fails the scan; every IGNORE needs a written reason.

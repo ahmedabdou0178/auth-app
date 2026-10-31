@@ -1,0 +1,14 @@
+# DAST overlay (used by dast.sh only): no host ports, Swagger on for the OpenAPI-driven scan,
+# limits raised so the scanner sees real responses instead of 429s.
+services:
+  mongo:
+    ports: !reset []
+  web:
+    ports: !reset []
+  api:
+    environment:
+      SWAGGER_ENABLED: 'true'
+      THROTTLE_LIMIT: '100000'
+      AUTH_THROTTLE_LIMIT: '100000'
+      LOCKOUT_MAX_ATTEMPTS: '100000'
+      LOG_LEVEL: warn

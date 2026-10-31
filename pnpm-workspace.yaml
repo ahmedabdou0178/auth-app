@@ -10,6 +10,8 @@ engineStrict: true
 # Supply chain (SPEC §9.5)
 # Never resolve a version published less than 7 days ago (minutes).
 minimumReleaseAge: 10080
+# Transitive dependencies may only come from the registry, never git/tarball URLs.
+blockExoticSubdeps: true
 # Refuse a version published with weaker provenance than an earlier one.
 trustPolicy: no-downgrade
 # Exact versions only, each reviewed: old release lines published before npm provenance

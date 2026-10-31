@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { CSRF_HEADER, REQUESTED_WITH_HEADER } from '@auth-app/shared';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { outsideApiMiddleware } from './common/middleware/outside-api.middleware.js';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware.js';
 import { AppConfig } from './config/app-config.js';
 import { isSwaggerEnabled } from './config/env.schema.js';
@@ -31,6 +32,7 @@ export function configureApp(app: NestExpressApplication): void {
     allowedHeaders: ['Content-Type', CSRF_HEADER, REQUESTED_WITH_HEADER, 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id', 'Retry-After'],
   });
+  app.use(outsideApiMiddleware);
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();

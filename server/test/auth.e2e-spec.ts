@@ -302,6 +302,17 @@ describe('errors and hardening', () => {
   });
 });
 
+describe('paths outside /api', () => {
+  it.each([
+    ['get', '/'],
+    ['post', '/latest/meta-data/'],
+  ] as const)('%s %s returns the JSON 404 error', async (method, path) => {
+    const res = await request(server)[method](path).expect(404);
+    expect(res.headers['content-type']).toMatch(/^application\/json/);
+    expect((res.body as ApiError).code).toBe('NOT_FOUND');
+  });
+});
+
 describe('GET /api/health', () => {
   it('is public and reports MongoDB up', async () => {
     const res = await request(server).get('/api/health').expect(200);

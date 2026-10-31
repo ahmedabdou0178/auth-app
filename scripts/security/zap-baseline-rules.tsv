@@ -1,0 +1,5 @@
+# ZAP baseline (passive) scan of the web app. Format: <rule id>	<IGNORE|WARN|FAIL>	(<reason>)
+# Every alert not listed here fails the scan; every IGNORE needs a written reason.
+10027	IGNORE	(Suspicious Comments: false positive on minified vendor code in the hashed JS bundle - the matched word 'user' is in React Router source, not a developer comment; the build strips comments)
+10049	IGNORE	(Storable and Cacheable Content: intended - content-hashed /assets/* are immutable for a year, index.html and SPA routes are no-cache)
+10109	IGNORE	(Modern Web Application: informational - this is a React single-page app by design)

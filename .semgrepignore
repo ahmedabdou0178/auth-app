@@ -1,0 +1,10 @@
+# Generated, vendored or non-source files.
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+reports/
+pnpm-lock.yaml
+*.md
+Full_Stack_Test_Task.pdf
