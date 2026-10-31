@@ -72,6 +72,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     if (response.headersSent) return;
+    if (exception instanceof AppException && exception.headers) {
+      response.set(exception.headers);
+    }
     response.status(body.statusCode).json({ ...body, requestId } satisfies ApiError);
   }
 

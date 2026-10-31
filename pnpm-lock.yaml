@@ -217,6 +217,9 @@ importers:
       '@nestjs/terminus':
         specifier: 12.1.0
         version: 12.1.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(@nestjs/mongoose@12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(mongoose@9.11.4)(rxjs@7.8.2))(@nestjs/swagger@12.0.4(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(reflect-metadata@0.2.2)(typescript@6.0.3))(mongoose@9.11.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/throttler':
+        specifier: 6.7.1
+        version: 6.7.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(reflect-metadata@0.2.2)
       argon2:
         specifier: 0.45.1
         version: 0.45.1
@@ -516,6 +519,14 @@ packages:
         optional: true
       typeorm:
         optional: true
+
+  '@nestjs/throttler@6.7.1':
+    resolution: {integrity: sha512-gAyY1AkU+cSK5DCjFOB43xax9oakameH4xZa9kAgqBqSBQZgmv3DZylLV8KyZNzOGhceL3kDVtby+CF8VAdmEA==}
+    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+    peerDependencies:
+      '@nestjs/common': ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0
+      '@nestjs/core': ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0
+      reflect-metadata: ^0.1.13 || ^0.2.0
 
   '@oxc-project/types@0.155.0':
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
@@ -2102,6 +2113,12 @@ snapshots:
       '@nestjs/mongoose': 12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(mongoose@9.11.4)(rxjs@7.8.2)
       '@nestjs/swagger': 12.0.4(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(reflect-metadata@0.2.2)(typescript@6.0.3)
       mongoose: 9.11.4
+
+  '@nestjs/throttler@6.7.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@12.2.0)(reflect-metadata@0.2.2)':
+    dependencies:
+      '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/platform-express@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      reflect-metadata: 0.2.2
 
   '@oxc-project/types@0.155.0': {}
 

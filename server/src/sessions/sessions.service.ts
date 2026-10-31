@@ -42,6 +42,59 @@ export class SessionsService implements OnModuleInit {
     return { session, refreshToken };
   }
 
+  /**
+   * Issues a new session (new sid + CSRF token) from a live refresh token, which stays unchanged.
+   * The presented session, if it belongs to that token, is deleted so it can't be reused.
+   * Returns null when the token is unknown, revoked or expired.
+   */
+  async refresh(
+    refreshToken: string,
+    presentedSessionId: string | undefined,
+    context: ClientContext,
+  ): Promise<SessionDocument | null> {
+    const token = await this.refreshTokens
+      .findOne({
+        tokenHash: sha256Hex(refreshToken),
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      })
+      .exec();
+    if (!token) return null;
+    if (presentedSessionId) {
+      await this.sessions
+        .deleteOne({ sessionId: presentedSessionId, refreshTokenId: token._id })
+        .exec();
+    }
+    return this.createSession(token.userId, token._id, context);
+  }
+
+  /**
+   * Logout: revokes the refresh token(s) identified by the cookies and deletes every session
+   * they created. Unknown or missing values are ignored (logout is idempotent).
+   */
+  async end(cookies: { refreshToken?: string; sessionId?: string }): Promise<void> {
+    const [token, session] = await Promise.all([
+      cookies.refreshToken
+        ? this.refreshTokens
+            .findOne({ tokenHash: sha256Hex(cookies.refreshToken) }, { _id: 1 })
+            .exec()
+        : null,
+      cookies.sessionId
+        ? this.sessions.findOne({ sessionId: cookies.sessionId }, { refreshTokenId: 1 }).exec()
+        : null,
+    ]);
+    const ids = [token?._id, session?.refreshTokenId].filter(
+      (id): id is Types.ObjectId => id !== undefined,
+    );
+    if (ids.length === 0) return;
+    await Promise.all([
+      this.refreshTokens
+        .updateMany({ _id: { $in: ids }, revokedAt: null }, { $set: { revokedAt: new Date() } })
+        .exec(),
+      this.sessions.deleteMany({ refreshTokenId: { $in: ids } }).exec(),
+    ]);
+  }
+
   /** A session that exists and has not expired (the TTL monitor can lag up to a minute). */
   findActive(sessionId: string): Promise<SessionDocument | null> {
     return this.sessions.findOne({ sessionId, expiresAt: { $gt: new Date() } }).exec();

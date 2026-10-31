@@ -8,6 +8,8 @@ export class AppException extends HttpException {
     readonly code: ErrorCode,
     message: string,
     readonly details?: ValidationErrorDetail[],
+    /** Extra response headers, e.g. `Retry-After`. */
+    readonly headers?: Record<string, string>,
   ) {
     super(message, status);
   }

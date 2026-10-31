@@ -1,5 +1,6 @@
 import { Controller, Get, Inject } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   HealthCheck,
   HealthCheckService,
@@ -9,10 +10,14 @@ import {
   type HealthIndicatorFunction,
 } from '@nestjs/terminus';
 import { REDIS_CLIENT, type RedisClient } from '../common/redis/redis.module.js';
+import { Public } from '../sessions/decorators.js';
 
 const CHECK_TIMEOUT_MS = 1500;
 
 @ApiTags('health')
+// Probed by orchestrators every few seconds; must never be rate limited.
+@SkipThrottle()
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
