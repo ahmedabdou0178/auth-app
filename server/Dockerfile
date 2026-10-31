@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build context: repository root (pnpm workspace + lockfile).
 
-FROM node:24-alpine AS base
+FROM node:24.22.1-alpine AS base
 ENV PNPM_HOME=/pnpm \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     CI=true
@@ -24,7 +24,7 @@ RUN pnpm --filter @auth-app/shared build \
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @auth-app/server deploy --prod /out
 
-FROM node:24-alpine AS runtime
+FROM node:24.22.1-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out/package.json ./

@@ -19,10 +19,11 @@ PROJECT="auth-app-dast"
 WEB_TARGET="http://web:8080"
 API_TARGET="http://api:3000"
 
-# COMPOSE overrides the command (e.g. a standalone docker-compose binary).
-read -r -a compose_cmd <<<"${COMPOSE:-docker compose}"
+# Defines run_compose with a Docker Compose >= 2.24 (the overlay uses `!reset`).
+# shellcheck source=scripts/lib/compose.sh
+source "$PWD/scripts/lib/compose.sh"
 compose() {
-  "${compose_cmd[@]}" -p "$PROJECT" \
+  run_compose -p "$PROJECT" \
     -f docker-compose.yml -f scripts/security/docker-compose.dast.yml "$@"
 }
 

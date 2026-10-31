@@ -15,13 +15,17 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:?required}
       COOKIE_SECURE: 'true'
       SWAGGER_ENABLED: 'false'
-      # Load balancer + nginx sit on private networks: trust those hops only, so the rate
-      # limits key on the real client IP and clients can't fake X-Forwarded-For.
+      # Trust only private-network hops (the load balancer and nginx), so the rate limits and
+      # the lockout see the real client IP and a client can't fake it with X-Forwarded-For.
       TRUST_PROXY: loopback, linklocal, uniquelocal
 
   web:
     image: ghcr.io/${GHCR_OWNER:?required}/auth-app-web:${IMAGE_TAG:-latest}
     build: !reset null
-    # Reached by the load balancer, which terminates TLS.
+    # Plain HTTP for the TLS load balancer in front of it. Bound to WEB_BIND, not to every
+    # interface: Docker-published ports bypass host firewalls (ufw/iptables rules), so binding
+    # to 0.0.0.0 would expose unencrypted HTTP publicly, around the load balancer's TLS and WAF.
+    # Set WEB_BIND to the private address the load balancer connects to (default: this host
+    # only, e.g. for a load balancer or reverse proxy running on the same machine).
     ports: !override
-      - ${WEB_PORT:-8080}:8080
+      - ${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8080
