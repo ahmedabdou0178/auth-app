@@ -18,7 +18,4 @@ reports/
 
 # Internal notes (never published)
 *.md
-
-
-# Assessment brief is marked "Internal"; keep it out of the public repo
 *.pdf
