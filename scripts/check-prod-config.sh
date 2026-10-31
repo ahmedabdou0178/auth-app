@@ -28,7 +28,9 @@ require MONGO_APP_PASSWORD "stand-in"
 require REDIS_PASSWORD "stand-in"
 export GHCR_OWNER="${GHCR_OWNER:-owner}"
 
-rendered="$(docker compose -f docker-compose.yml -f docker-compose.prod.yml config --format json)"
+# COMPOSE overrides the command (e.g. a standalone docker-compose binary).
+read -r -a compose <<<"${COMPOSE:-docker compose}"
+rendered="$("${compose[@]}" -f docker-compose.yml -f docker-compose.prod.yml config --format json)"
 
 value() {
   printf '%s' "$rendered" | python3 -c \
